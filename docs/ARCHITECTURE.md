@@ -1,107 +1,92 @@
 # Architecture
 
-## High-level diagram (text)
+LevelManager is a small, layered Revit add-in compiled into three per-version assemblies from a single shared-source project.
+
+## Target frameworks
+
+| Revit | Framework | csproj style |
+| :--- | :--- | :--- |
+| 2024 | `.NET Framework 4.8` | Old-style (legacy `.csproj`, `<TargetFrameworkVersion>v4.8`) |
+| 2025 | `net8.0-windows` | SDK-style (`<Project Sdk="Microsoft.NET.Sdk">`, `<UseWPF>true</UseWPF>`) |
+| 2026 | `net8.0-windows` | SDK-style |
+
+All three produce **`LevelManager.dll`**; the assembly name is identical so the same `.addin` manifest works against every version.
+
+## Source layout
 
 ```
-                  Revit process
- ┌───────────────────────────────────────────────────────────────────┐
- │                                                                   │
- │  Ribbon panel "Levels"  ── click ──▶  LevelManager.Command        │
- │   (built in App.OnStartup)            [IExternalCommand,          │
- │                                        TransactionMode.Manual]    │
- │                                              │                    │
- │                                              ▼                    │
- │                              ┌─────────────────────────────────┐  │
- │                              │ Command.Execute                 │  │
- │                              │  - LevelApiController(doc)      │  │
- │                              │  - GetAll() → List<LevelModel>  │  │
- │                              │  - new CreateLevelEventHandler  │  │
- │                              │  - new DeleteLevelEventHandler  │  │
- │                              │  - ExternalEvent.Create(...) x2 │  │
- │                              └────────────────┬────────────────┘  │
- │                                               ▼                   │
- │                                  ┌──────────────────────────┐     │
- │                                  │   MainForm (WPF, modeless)│    │
- │                                  │   src/LevelManager/UI/    │    │
- │                                  └──────┬──────────┬─────────┘    │
- │  WPF UI thread                          │          │              │
- │  ────────────────────────────────────── │ Raise()  │ Raise() ──── │
- │  Revit API thread                       ▼          ▼              │
- │                          CreateLevelEventHandler  DeleteLevelEH   │
- │                                     │                  │          │
- │                                     ▼                  ▼          │
- │                         LevelApiController.Create / Delete        │
- │                          (opens & commits Transaction)            │
- │                                     │                             │
- │                                     ▼                             │
- │                            Autodesk.Revit.DB.Document             │
- └───────────────────────────────────────────────────────────────────┘
+src/
+├── Shared/                          (compiled into all three assemblies)
+│   ├── Shared.shproj                (.shproj — shared-project metadata)
+│   ├── Shared.projitems             (lists every .cs / .xaml / resource)
+│   ├── App.cs                       (IExternalApplication — ribbon registration)
+│   ├── Command.cs                   (IExternalCommand — opens MainForm)
+│   ├── Api/
+│   │   ├── LevelApiController.cs    (Revit-API ops: GetAll / Create / Delete)
+│   │   └── EventHandlers/
+│   │       ├── CreateLevelEventHandler.cs   (IExternalEventHandler)
+│   │       └── DeleteLevelEventHandler.cs   (IExternalEventHandler)
+│   ├── Domain/                      (POCOs — no Revit refs except elevation units)
+│   │   ├── BasePointType.cs         (enum: Project = 0, Shared = 1)
+│   │   ├── Elevation.cs             (double wrapper with rounding)
+│   │   └── LevelModel.cs            (Name, Elevation, BasePointType)
+│   ├── UI/
+│   │   ├── MainForm.xaml            (modeless WPF window)
+│   │   └── MainForm.xaml.cs         (code-behind, INotifyPropertyChanged)
+│   └── Resources/                   (logo_16.png, logo_32.png — pack:// URIs)
+├── LevelManager 2024/               (thin csproj for Revit 2024)
+├── LevelManager 2025/               (thin csproj for Revit 2025)
+└── LevelManager 2026/               (thin csproj for Revit 2026)
 ```
 
-## Component responsibilities
+## Layering
 
-| Component | File | Responsibility |
-|---|---|---|
-| `App` | `App.cs` | `IExternalApplication`. Registers the ribbon panel and push button. No domain logic. |
-| `Command` | `Command.cs` | `IExternalCommand` entry point. Wires up controller, handlers, and external events; opens the window modelessly. |
-| `LevelApiController` | `Api/LevelApiController.cs` | Sole owner of Revit `Document` reads and writes. Opens transactions for `Create` and `Delete`. |
-| `CreateLevelEventHandler` | `Api/EventHandlers/CreateLevelEventHandler.cs` | `IExternalEventHandler` that runs `LevelApiController.Create` on Revit's API thread. |
-| `DeleteLevelEventHandler` | `Api/EventHandlers/DeleteLevelEventHandler.cs` | Same, for `Delete`. Namespace is `LevelManagerApp.Windows` — see API_REFERENCE.md note. |
-| `LevelModel` / `Elevation` / `BasePointType` | `Domain/*.cs` | Plain DTO + value wrappers carried between layers. No Revit dependency. |
-| `MainForm` | `UI/MainForm.xaml` (+`.xaml.cs`) | Presents the level list, validates user input, raises external events, and maintains the in-memory `ObservableCollection<LevelModel>`. Acts as its own view-model (no separate VM class). |
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Revit host (UI thread + API thread)                         │
+└──────────────┬───────────────────────────┬──────────────────┘
+               │                           │
+   ┌───────────▼─────────┐    ┌────────────▼─────────────┐
+   │ App (Ribbon)        │    │ Command (IExternalCmd)   │
+   └─────────────────────┘    └────────────┬─────────────┘
+                                            │ shows
+                                ┌───────────▼─────────────┐
+                                │ UI/MainForm (WPF)       │
+                                └───────────┬─────────────┘
+                                            │ Raise()
+                                ┌───────────▼─────────────┐
+                                │ Api/EventHandlers/*     │   API thread
+                                └───────────┬─────────────┘
+                                            │ delegates to
+                                ┌───────────▼─────────────┐
+                                │ Api/LevelApiController  │   transactions
+                                └───────────┬─────────────┘
+                                            │ reads/writes
+                                ┌───────────▼─────────────┐
+                                │ Revit Document          │
+                                └─────────────────────────┘
+```
 
-There is **no MVVM** layer in the strict sense — `MainForm.xaml.cs`
-exposes its own bindable properties (`BasePointTypeEnumValues`,
-`SelectedBasePointType`, `IsAddLevelButtonEnabled`) and the XAML binds back
-to the `Window` via `RelativeSource AncestorType=Window`.
+## Threading model
 
-## Data flow: creating a level
+The Revit API may only be called from Revit's API thread, inside an `IExternalCommand.Execute` or `IExternalEventHandler.Execute`. The MainForm is **modeless** (`Window.Show()`), so its event handlers run on the WPF UI thread — *not* on Revit's API thread.
 
-1. User types Name + Elevation, picks Base Point Type, clicks **Add
-   Level** in `MainForm`.
-2. `AddLevel_Click` validates inputs, builds a
-   `LevelModel(name, new Elevation(double), basePointType)`.
-3. The model is assigned to `_createLevelEventHandler.Input`; then
-   `_createLevelExternalEvent.Raise()` queues the operation with Revit.
-4. `MainForm` adds the new `LevelModel` to its `ObservableCollection`
-   immediately (optimistic update) and clears the inputs.
-5. Revit, on its next idle slice, calls `CreateLevelEventHandler.Execute`
-   on its API thread.
-6. The handler instantiates a new `LevelApiController` for the active
-   document and calls `Create(Input)`.
-7. `LevelApiController.Create` opens a `"Create Level"` `Transaction`,
-   calls `Level.Create`, sets `Name`, sets
-   `BuiltInParameter.LEVEL_RELATIVE_BASE_TYPE` from
-   `(int)BasePointType`, and commits — or rolls back and logs to
-   `Debug.WriteLine` on exception.
+To bridge this:
+1. `Command.Execute` constructs `CreateLevelEventHandler` and `DeleteLevelEventHandler`, pairs each with `ExternalEvent.Create(...)`, and passes both into `MainForm`.
+2. When the user clicks **Add Level** or **Delete**, the WPF code-behind sets the handler's `Input` property and calls `event.Raise()`.
+3. Revit invokes `Execute(UIApplication)` on the API thread at the next idle slice; the handler delegates to `LevelApiController`, which owns the `Transaction`.
+4. `ExternalEvent` instances are disposed when the window closes (`MyMainForm_Closed`).
 
-## Data flow: deleting a level
+## Revit API surface used
 
-1. User clicks the per-row **Delete** button in `LevelsDataGrid`.
-2. `DeleteRow_Click` confirms via `MessageBox`, sets
-   `_deleteLevelEventHandler.Input = selectedLevel`, raises the external
-   event, and removes the row from the `ObservableCollection`.
-3. `DeleteLevelEventHandler.Execute` runs on Revit's API thread, calls
-   `LevelApiController.Delete(input.Name)`.
-4. `Delete` resolves the level by name (`FindByName`) and runs a
-   `"Delete Level"` transaction. Failure surfaces via `TaskDialog` and
-   `Debug.WriteLine`; the UI is not notified.
+| API | Purpose | Stable across 2024/2025/2026 |
+| :--- | :--- | :--- |
+| `FilteredElementCollector` + `OfCategory(BuiltInCategory.OST_Levels)` | Enumerate levels | ✓ |
+| `Level.Create(Document, double)` | Create a level | ✓ |
+| `Level.Name`, `Level.Elevation` | Read level metadata | ✓ |
+| `BuiltInParameter.LEVEL_RELATIVE_BASE_TYPE` | Project vs Shared base | ✓ |
+| `Document.Delete(ElementId)` | Remove level | ✓ |
+| `Transaction` | Mutation atomicity | ✓ |
+| `ExternalEvent` / `IExternalEventHandler` | Cross-thread marshalling | ✓ |
 
-## Threading summary
-
-- WPF UI thread: input validation, `MessageBox`/`TaskDialog` is invoked
-  from both threads but always reaches the user safely.
-- Revit API thread: all `Document` reads (`GetAll` runs at command
-  startup, before the modeless window takes over the UI thread) and all
-  writes via `IExternalEventHandler.Execute`.
-- The `ExternalEvent` bridge is the only legal way to mutate the document
-  from the modeless WPF window in this design.
-
-## Lifetime
-
-- `App.OnStartup` runs once per Revit session.
-- `Command.Execute` runs once per ribbon click. It creates fresh
-  handlers and external events every time, so closing and reopening the
-  window starts a clean state.
-- `MyMainForm_Closed` disposes both `ExternalEvent` instances. The
-  handler objects themselves are garbage-collected with the window.
+No version-specific `#if` directives are needed; the same shared source compiles cleanly against all three Revit API surfaces.

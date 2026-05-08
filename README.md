@@ -1,142 +1,98 @@
-# LevelManager
+# CodeHaks **LevelManager** for Revit
 
-[![Build](https://img.shields.io/badge/build-passing-brightgreen)](#building-from-source)
-[![License](https://img.shields.io/badge/license-TBD-lightgrey)](#license)
-[![Revit](https://img.shields.io/badge/Revit-2024-blue)](#prerequisites)
-[![.NET](https://img.shields.io/badge/.NET%20Framework-4.8-512BD4)](#prerequisites)
+[![Build](https://img.shields.io/badge/build-msbuild-blue?logo=.net)](docs/build-and-load.md)
+[![Revit](https://img.shields.io/badge/Revit-2024%20%7C%202025%20%7C%202026-005CA9?logo=autodesk&logoColor=white)](docs/build-and-load.md#revit-version-matrix)
+[![.NET](https://img.shields.io/badge/.NET-Framework%204.8%20%7C%208.0--windows-512BD4?logo=dotnet&logoColor=white)](docs/architecture.md#target-frameworks)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D6?logo=windows&logoColor=white)](#requirements)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/contributing.md)
 
-A Revit 2024 add-in with a WPF interface for managing project levels.
-Lists every `Level` in the active document and lets the user create or
-delete levels without leaving Revit. Document changes run inside Revit
-transactions via the `ExternalEvent` bridge so the WPF window can stay
-modeless.
+**CodeHaks LevelManager** is a Revit add-in that lists every `Level` in the active document and lets the user create or delete levels from a modeless WPF window. Document mutations run inside Revit transactions via the `IExternalEventHandler` bridge, so the dialog stays modeless and Revit-API-thread-safe.
 
-## Features
+The codebase is built around a single shared-source project that is compiled into three per-Revit-version assemblies — one for Revit 2024 (.NET Framework 4.8) and one each for Revit 2025 / 2026 (.NET 8 on Windows).
 
-- Modeless WPF window listing all levels (Name, Elevation, Base Point).
-- Create a new level with name, elevation, and Project/Shared base point.
-- Delete a level with confirmation and graceful error handling.
-- Ribbon integration under **Add-Ins → Levels → Manager** with branded
-  16/32-px icons.
-- Input validation: numeric-only elevation, duplicate-name guard,
-  Add-button disabled until both inputs are filled.
+---
 
-## Prerequisites
+## Highlights
 
-| Requirement | Version |
-|---|---|
-| Autodesk Revit | 2024 |
-| .NET Framework | 4.8 (targeting pack required) |
-| Visual Studio | 2022 (or any IDE with MSBuild + .NET 4.8 tooling) |
-| OS | Windows 10/11 |
+- **Modeless WPF window** — lists existing levels (Name, Elevation, Base Point), with input validation for name and elevation.
+- **Transactional mutations** — `Create Level` and `Delete Level` run inside their own `Transaction`, marshalled to Revit's API thread by `ExternalEvent`.
+- **Ribbon integration** — adds a *Levels* panel with a *Manager* button (16/32-px branded icons) under the Add-Ins tab.
+- **Multi-version build** — one shared project (`src/Shared/`), three thin per-version csprojs that differ only in target framework and Revit reference paths.
+- **Single one-shot builder** — [`build.bat`](build.bat) compiles all targets and collects DLL + `.addin` into `dist/Revit <year>/`.
 
-The project references `RevitAPI.dll` and `RevitAPIUI.dll` from
-`C:\Program Files\Autodesk\Revit 2024\` via `HintPath`.
+---
 
-## Installation (end users)
+## Requirements
 
-1. Download or build `LevelManager.dll` and `LevelManager.addin`.
-2. Place `LevelManager.addin` in one of:
-   - `%AppData%\Autodesk\Revit\Addins\2024\` (current user), or
-   - `%ProgramData%\Autodesk\Revit\Addins\2024\` (all users).
-3. Edit the `<Assembly>` element inside the deployed `.addin` so it
-   points to the absolute path of `LevelManager.dll` on your machine.
-4. Start Revit 2024, open a project, then click
-   **Add-Ins → Levels → Manager**.
+| | |
+| :--- | :--- |
+| **OS** | Windows 10 / 11, x64 |
+| **Revit** | 2024, 2025, or 2026 (installed at `C:\Program Files\Autodesk\Revit <year>\`) |
+| **.NET (build-time)** | .NET Framework 4.8 SDK *and* .NET 8 SDK |
+| **Build tools** | MSBuild 17+ / Visual Studio 2022 17.8+ |
 
-## Building from source
+See [docs/build-and-load.md](docs/build-and-load.md) for the full version matrix.
 
-```powershell
-git clone <repo-url>
-cd LevelManager
-msbuild src\LevelManager\LevelManager.csproj /p:Configuration=Debug
+---
+
+## Quick start
+
+### Build everything
+
+```bat
+build.bat              :: Release into dist\Revit 2024|2025|2026\
+build.bat Debug        :: Debug build
 ```
 
-Output: `src/LevelManager/bin/Debug/LevelManager.dll`. The
-`LevelManager.addin` manifest is copied to the output directory on every
-build.
+Or build a single target:
 
-To debug inside Revit, set the project's **Start external program** to
-`C:\Program Files\Autodesk\Revit 2024\Revit.exe` and press **F5**.
+```bat
+msbuild "src\LevelManager 2026\LevelManager 2026.csproj" /p:Configuration=Release
+```
 
-## Usage
+### Load into Revit
 
-1. Click **Add-Ins → Levels → Manager** in the Revit ribbon.
-2. The **Level Manager v1.0.0** window opens with all existing levels.
+1. Copy `dist\Revit <year>\LevelManager.dll` and `dist\Revit <year>\LevelManager.addin` into:
+   `%AppData%\Autodesk\Revit\Addins\<year>\`
+2. Launch Revit `<year>` and open a project.
+3. Click **Add-Ins ▸ Levels ▸ Manager** on the ribbon.
 
-   [screenshot_here]
+Full walkthrough: [docs/build-and-load.md](docs/build-and-load.md).
 
-3. To add a level: enter a unique **Name**, type an **Elevation**
-   (decimal feet — Revit internal units), pick a **Base Point Type**,
-   and click **Add Level**.
+---
 
-   [screenshot_here]
+## In-Revit commands
 
-4. To remove a level: click **Delete** on its row and confirm.
+| Surface | Description |
+| :--- | :--- |
+| **Add-Ins ▸ Levels ▸ Manager** | Opens the modeless **Level Manager** window: list, create, and delete levels. |
 
-   [screenshot_here]
+---
 
-See [docs/USER_MANUAL.md](docs/USER_MANUAL.md) for every UI element
-and error message.
+## Documentation
 
-## WPF + Revit API notes
+| Document | What's inside |
+| :--- | :--- |
+| [docs/architecture.md](docs/architecture.md) | High-level design, layering, namespaces, Revit interop & threading notes. |
+| [docs/build-and-load.md](docs/build-and-load.md) | Build pipeline, version matrix, manifest install instructions. |
+| [docs/developer-guide.md](docs/developer-guide.md) | Day-to-day development workflow, code map, debugging in Revit. |
+| [docs/testing.md](docs/testing.md) | How to add unit tests and integration tests against Revit APIs. |
+| [docs/roadmap.md](docs/roadmap.md) | Future ideas, suggested improvements, technical-debt items. |
+| [docs/contributing.md](docs/contributing.md) | Branching, commit conventions, review checklist. |
 
-- The Revit API may only be called from Revit's API thread, inside an
-  `IExternalCommand.Execute` or `IExternalEventHandler.Execute`.
-- The window is **modeless** (`Window.Show()`), so its event handlers
-  run on the WPF UI thread — not on Revit's API thread.
-- Each mutating operation (create, delete) is therefore wrapped in an
-  `IExternalEventHandler` paired with an
-  `ExternalEvent.Create(...)`. The UI sets the handler's `Input` and
-  calls `event.Raise()`; Revit invokes the handler on its next idle
-  slice.
-- Transactions are owned by `LevelApiController` (`Create Level`,
-  `Delete Level`). The command class is decorated with
-  `[Transaction(TransactionMode.Manual)]`.
-- `ExternalEvent` instances are disposed when the window closes
-  (`MyMainForm_Closed`).
+---
 
-Architecture details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Support
 
-## Configuration
+Open an issue on the GitHub repo, or email **[support@codehaks.com](mailto:support@codehaks.com)**.
 
-None. There are no settings files, JSON configs, or environment
-variables. The only configurable item is the `<Assembly>` path inside
-`LevelManager.addin` (see [Installation](#installation-end-users)).
-
-## Known issues / limitations
-
-- **Revit 2024 only.** No multi-version targeting.
-- **Optimistic UI updates.** Rows are added/removed before the Revit
-  transaction commits; if the transaction rolls back, the grid may
-  drift from the document until the window is reopened.
-- **Elevation units.** Input is passed straight to `Level.Create`,
-  which expects Revit internal units (decimal feet). No unit
-  conversion or display formatting beyond two-decimal rounding.
-- **Hard-coded assembly path** in the shipped `.addin` file must be
-  edited per machine.
-- `DeleteLevelEventHandler` lives under namespace
-  `LevelManagerApp.Windows` while the rest of the project uses
-  `LevelManager.*`.
-- Error reporting from background transactions is limited to
-  `Debug.WriteLine` and a single `TaskDialog` for delete failures.
-
-## Contributing
-
-1. Fork the repo and create a feature branch from `master`.
-2. Keep the project structure under `src/LevelManager/` (Domain, Api,
-   UI, EventHandlers).
-3. Follow the existing patterns:
-   - Document mutations belong in `LevelApiController`, each in its
-     own `Transaction`.
-   - WPF → Revit calls go through a dedicated `IExternalEventHandler`.
-4. Build with MSBuild and smoke-test inside Revit 2024 before opening
-   a PR.
-5. Open a pull request describing the change and the test you ran in
-   Revit.
-
-Issues and feature requests are welcome via GitHub Issues.
+---
 
 ## License
 
-**All rights reserved**
+Released under the [MIT License](LICENSE.txt).
+
+---
+
+**CodeHaks LevelManager** — Manage Revit levels without leaving Revit.

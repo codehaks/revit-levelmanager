@@ -1,9 +1,15 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34321.82
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LevelManager", "src\LevelManager\LevelManager.csproj", "{5A83F96F-10DD-42A2-BF7C-AF0901C50030}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Shared", "src\Shared\Shared.shproj", "{A6F21E10-2C6D-4B15-9F3A-1D4C8E5B7A90}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LevelManager 2024", "src\LevelManager 2024\LevelManager 2024.csproj", "{5A83F96F-10DD-42A2-BF7C-AF0901C50030}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LevelManager 2025", "src\LevelManager 2025\LevelManager 2025.csproj", "{B2D5A1F3-7E40-4C82-9A18-3F6E1C0D8B11}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LevelManager 2026", "src\LevelManager 2026\LevelManager 2026.csproj", "{C8A6D2E4-5F30-4B91-8E27-9D5C0A4F1B62}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,11 +21,25 @@ Global
 		{5A83F96F-10DD-42A2-BF7C-AF0901C50030}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5A83F96F-10DD-42A2-BF7C-AF0901C50030}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5A83F96F-10DD-42A2-BF7C-AF0901C50030}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2D5A1F3-7E40-4C82-9A18-3F6E1C0D8B11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2D5A1F3-7E40-4C82-9A18-3F6E1C0D8B11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2D5A1F3-7E40-4C82-9A18-3F6E1C0D8B11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2D5A1F3-7E40-4C82-9A18-3F6E1C0D8B11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8A6D2E4-5F30-4B91-8E27-9D5C0A4F1B62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8A6D2E4-5F30-4B91-8E27-9D5C0A4F1B62}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8A6D2E4-5F30-4B91-8E27-9D5C0A4F1B62}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8A6D2E4-5F30-4B91-8E27-9D5C0A4F1B62}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {092E656C-DDB8-479E-9752-134398D096E3}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		src\Shared\Shared.projitems*{a6f21e10-2c6d-4b15-9f3a-1d4c8e5b7a90}*SharedItemsImports = 13
+		src\Shared\Shared.projitems*{5a83f96f-10dd-42a2-bf7c-af0901c50030}*SharedItemsImports = 4
+		src\Shared\Shared.projitems*{b2d5a1f3-7e40-4c82-9a18-3f6e1c0d8b11}*SharedItemsImports = 5
+		src\Shared\Shared.projitems*{c8a6d2e4-5f30-4b91-8e27-9d5c0a4f1b62}*SharedItemsImports = 5
 	EndGlobalSection
 EndGlobal
